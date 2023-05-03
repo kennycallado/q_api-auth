@@ -1,0 +1,45 @@
+
+# {{{ health checkers
+### profiles - users - auth
+GET http://localhost:8001/health
+
+GET http://localhost:8002/health
+
+GET http://localhost:8003/health
+
+### fmc
+GET http://localhost:8005/health
+
+### questions - answers
+GET http://localhost:8011/health
+
+GET http://localhost:8012/health
+
+### slides - forms - externals
+GET http://localhost:8021/health
+
+GET http://localhost:8022/health
+
+GET http://localhost:8023/health
+
+### resources - papers
+GET http://localhost:8031/health
+
+GET http://localhost:8032/health
+
+### local
+GET http://localhost:8000/health
+# }}}
+
+### auth bypass
+GET http://localhost:8003/auth/bypass/1
+Accept: application/json
+
+# {{{ example
+
+GET http://localhost:8000/api/v1/example
+Accept: application/json
+Authorization: Bearer <token>
+Content-type: application/json
+
+# }}}
