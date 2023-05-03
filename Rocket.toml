@@ -2,11 +2,11 @@
 # :redir @* | !openssl rand -base64 32 | tr -d '\n' | xclip -selection clipboard
 
 [default]
-ident      = "questions_api-base"
-port       = 8000
-address    = "0.0.0.0"
+ident      = "questions_api-auth"
+# port       = 8000
+# address    = "0.0.0.0"
 origin_url = "http://localhost:8000"
-secret_key = ""
+# secret_key = ""
 
 migrations_run = false
 
@@ -27,4 +27,4 @@ resource_url  = "http://localhost:8031/api/v1/resource"
 paper_url     = "http://localhost:8032/api/v1/paper"
 
 [default.databases.questions]
-url = "postgres://base:base@localhost/base"
+url = "postgres://auth:auth@localhost/auth"
