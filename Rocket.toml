@@ -20,7 +20,7 @@ question_url  = "http://localhost:8011/api/v1/question"
 answer_url    = "http://localhost:8012/api/v1/answer"
 
 slide_url     = "http://localhost:8021/api/v1/slide"
-form_url      = "http://localhost:8022/api/v1/slide"
+form_url      = "http://localhost:8022/api/v1/form"
 external_url  = "http://localhost:8023/api/v1/external"
 
 resource_url  = "http://localhost:8031/api/v1/resource"

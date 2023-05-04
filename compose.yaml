@@ -170,7 +170,7 @@ services:
   #     - questions_api
   #     - slides_api
   # # }}}
-  # 
+  
   # # {{{ externals
   # externals_api:
   #   image: kennycallado/q-api-externals:latest
@@ -211,6 +211,7 @@ services:
     depends_on:
       - slides_api
   # }}}
+  
   # # {{{ papers
   # papers_api:
   #   image: kennycallado/q-api-papers:latest
