@@ -32,7 +32,10 @@ pub enum SlideType {
 
 impl fmt::Display for SlideType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match *self {
+        write!(
+            f,
+            "{}",
+            match *self {
                 SlideType::Content => "content",
                 SlideType::Input => "input",
             }
