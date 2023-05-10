@@ -13,6 +13,7 @@ Acceder al repositorio en github y pulsar **Use this template**, **Create a new 
 1. 
    ``` bash
    git remote add base git@github.com:kennycallado/q_api-base.git
+   git remote set-url base --no-push git@github.com:kennycallado/q_api-base.git
    ```
 1. 
    ``` bash
@@ -24,7 +25,7 @@ Acceder al repositorio en github y pulsar **Use this template**, **Create a new 
    ```
 
    ``` bash
-   git pull --allow-unrelated-histories
+   git pull base main --allow-unrelated-histories
    ```
 
 <!-- quizá mejor si no mantiene la rama
