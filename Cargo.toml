@@ -3,6 +3,14 @@ name = "q-api-auth"
 version = "0.1.3"
 edition = "2021"
 
+[features]
+default = []
+full  =  ["db", "fetch", "cron"]
+
+cron  = ["tokio-cron-scheduler"]
+db    = ["diesel", "diesel_migrations", "rocket_sync_db_pools"]
+fetch = ["reqwest"]
+
 [profile.release]
 lto = true
 opt-level = 3
@@ -10,15 +18,17 @@ strip = true
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-# diesel = { version = "2", features = ["postgres", "chrono"] }
-# diesel_migrations = { version = "2", features = ["postgres"] }
+diesel = { version = "2", features = ["postgres", "chrono", "serde_json"], optional = true  }
+diesel_migrations = { version = "2", features = ["postgres"], optional = true }
 jsonwebtoken = "8.2.0"
+reqwest = { version = "0.11", features = ["json"], optional = true }
 rocket = { version = "0.5.0-rc.3", features = ["json", "secrets", "uuid"] }
-# rocket_sync_db_pools = { version = "0.1.0-rc.3", features = ["diesel_postgres_pool"] }
+rocket_sync_db_pools = { version = "0.1.0-rc.3", features = ["diesel_postgres_pool"], optional = true }
 serde = { version = "1", features = ["derive"] }
-openssl = "*" # musl
-# time = "0.3"  # musl
+tokio-cron-scheduler = { version = "*", optional = true }
 
+openssl = "*" # musl
+
+# time = "0.3"  # musl
+# tokio = { version = "1", features = ["full"] }
 # uuid = { version = "1.3.0", features = ["v4"] }
-reqwest = { version = "0.11", features = ["json"] }
-tokio = { version = "1", features = ["full"] }
