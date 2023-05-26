@@ -1,8 +1,10 @@
+use rocket::State;
 use rocket::http::{Cookie, CookieJar, Status};
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::app::providers::guards::claims::RefreshClaims;
+use crate::app::providers::interfaces::helpers::fetch::Fetch;
 
 use crate::app::modules::auth::services::helpers;
 use crate::app::providers::interfaces::helpers::claims::UserInClaims;
@@ -20,8 +22,8 @@ pub struct AuthUser {
 
 // WARNING: This is only for testing purposes
 #[get("/bypass/<id>")]
-pub async fn auth_bypass(cookie: &CookieJar<'_>, id: i32) -> Result<Json<AuthUser>, Status> {
-    let user_in_claims = helpers::user_request(id).await;
+pub async fn auth_bypass(fetch: &State<Fetch>, cookie: &CookieJar<'_>, id: i32) -> Result<Json<AuthUser>, Status> {
+    let user_in_claims = helpers::user_request(fetch, id).await;
     if let Err(_) = user_in_claims {
         return Err(Status::InternalServerError);
     }
@@ -44,8 +46,8 @@ pub async fn auth_bypass(cookie: &CookieJar<'_>, id: i32) -> Result<Json<AuthUse
 }
 
 #[get("/")]
-pub async fn auth(cookie: &CookieJar<'_>, claims: RefreshClaims) -> Result<Json<AuthUser>, Status> {
-    let user_in_claims = helpers::user_request(claims.0.user.id).await;
+pub async fn auth(fetch: &State<Fetch>, cookie: &CookieJar<'_>, claims: RefreshClaims) -> Result<Json<AuthUser>, Status> {
+    let user_in_claims = helpers::user_request(fetch, claims.0.user.id).await;
     if let Err(_) = user_in_claims {
         return Err(Status::InternalServerError);
     }
@@ -75,15 +77,15 @@ pub async fn login_options() -> Status {
 }
 
 #[post("/login", data = "<token>")]
-pub async fn login(cookie: &CookieJar<'_>, token: String) -> Result<Json<AuthUser>, Status> {
+pub async fn login(fetch: &State<Fetch>, cookie: &CookieJar<'_>, token: String) -> Result<Json<AuthUser>, Status> {
     // Request the user_id from the profile api
-    let response = helpers::profile_request(token).await;
+    let response = helpers::profile_request(fetch, token).await;
     if let Err(e) = response {
         return Err(e);
     }
     let response = response.unwrap();
 
-    let user_in_claims = helpers::user_request(response).await;
+    let user_in_claims = helpers::user_request(fetch, response).await;
     if let Err(_) = user_in_claims {
         return Err(Status::InternalServerError);
     }
@@ -107,8 +109,8 @@ pub async fn login(cookie: &CookieJar<'_>, token: String) -> Result<Json<AuthUse
 }
 
 #[get("/logout")]
-pub async fn logout(cookie: &CookieJar<'_>, claims: RefreshClaims) -> Status {
-    if let Err(_) = helpers::fcm_token_delete(claims.0.user.id).await {
+pub async fn logout(fetch: &State<Fetch>, cookie: &CookieJar<'_>, claims: RefreshClaims) -> Status {
+    if let Err(_) = helpers::fcm_token_delete(fetch, claims.0.user.id).await {
         println!("AUTH: logout: fcm_token_delete failed");
     };
 
