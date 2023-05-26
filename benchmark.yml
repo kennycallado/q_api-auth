@@ -5,7 +5,7 @@
 # https://varnish-cache.org/intro/index.html#intro
 #
 # ``` bash
-# export TOKEN=$(curl http://localhost:8003/auth/bypass/1/ | jq .access_token | tr -d '\"')
+# export TOKEN=$(curl http://localhost:8000/auth/bypass/1/ | jq .access_token | tr -d '\"')
 # drill --benchmark benchmark.yml --stats
 # ```
 #
@@ -40,4 +40,21 @@ plan:
   - name: Heath checker
     request:
       url: '/health'
+    tags: [ health ]
+
+  - name: Get Auth Bypass
+    request:
+      url: '/auth/bypass/1'
+    tags: [ bypass ]
+
+  # Necesita pasar antes por /auth/bypass/1 para guardar cookie
+  - name: Get Auth <refresh_token>
+    request:
+      url: '/auth'
+    tags: [ auth ]
+
+  - name: Get Auth Logout
+    request:
+      url: '/auth/logout'
+    tags: [ logout ]
 ---
