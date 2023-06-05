@@ -5,7 +5,8 @@
 # https://varnish-cache.org/intro/index.html#intro
 #
 # ``` bash
-# export TOKEN=$(curl http://localhost:8000/auth/bypass/1/ | jq .access_token | tr -d '\"')
+# export REFRESH=$(curl -sS -D - http://localhost:8000/auth/bypass/1 -o /dev/null | grep 'set-cookie: .*' | sed -n -e 's/^.*: //p')
+# export TOKEN=$(curl http://localhost:8003/auth/bypass/1/ | jq .access_token | tr -d '\"')
 # drill --benchmark benchmark.yml --stats
 # ```
 #

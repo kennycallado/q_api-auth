@@ -4,7 +4,7 @@
 [default]
 ident      = "questions_api-auth"
 # port       = 8000
-# address    = "0.0.0.0"
+address    = "0.0.0.0"
 origin_url = "http://localhost:8000"
 # secret_key = ""
 
@@ -23,6 +23,11 @@ external_url  = "http://localhost:8023/api/v1/external"
 
 resource_url  = "http://localhost:8031/api/v1/resource"
 paper_url     = "http://localhost:8032/api/v1/paper"
+
+logic_url     = "http://localhost:8041/api/v1/logic"
+checker_url   = "http://localhost:3000/"
+
+project_url     = "http://localhost:8051/api/v1/project"
 
 [default.databases.questions]
 url = "postgres://auth:auth@localhost/auth"

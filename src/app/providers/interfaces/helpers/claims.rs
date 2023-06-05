@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use jsonwebtoken::errors::Error;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
