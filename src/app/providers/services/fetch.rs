@@ -1,7 +1,8 @@
 #[cfg(feature = "fetch")]
-use rocket::tokio::sync::Mutex;
-#[cfg(feature = "fetch")]
 use std::sync::Arc;
+
+#[cfg(feature = "fetch")]
+use rocket::tokio::sync::Mutex;
 
 #[cfg(feature = "fetch")]
 use super::claims::{Claims, UserInClaims};

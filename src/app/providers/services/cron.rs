@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 #[cfg(feature = "cron")]
 use std::sync::Arc;
 

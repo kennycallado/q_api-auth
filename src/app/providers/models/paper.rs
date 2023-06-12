@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::app::providers::interfaces::answer::PubNewAnswer;
+use crate::app::providers::models::answer::PubNewAnswer;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct PubPaperPush {
     pub id: i32,

@@ -2,7 +2,7 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
 
-use crate::app::providers::interfaces::helpers::config_getter::ConfigGetter;
+use crate::app::providers::config_getter::ConfigGetter;
 
 pub struct Cors;
 

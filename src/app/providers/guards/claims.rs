@@ -1,7 +1,7 @@
 use rocket::request::{FromRequest, Outcome, Request};
 
-use crate::app::providers::interfaces::helpers::claims::{Claims, ClaimsError};
-use crate::app::providers::interfaces::helpers::token::Token;
+use crate::app::providers::services::claims::{Claims, ClaimsError};
+use crate::app::providers::services::token::Token;
 
 pub struct AccessClaims(pub Claims);
 pub struct RefreshClaims(pub Claims);
@@ -10,7 +10,6 @@ pub struct RefreshClaims(pub Claims);
 impl<'r> FromRequest<'r> for RefreshClaims {
     type Error = ClaimsError;
 
-    // This claims is created from the private cookie
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let token: Token = match Token::from_cookie(request) {
             Some(token) => token,

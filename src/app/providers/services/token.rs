@@ -3,8 +3,8 @@ use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 use rocket::http::Cookie;
 use rocket::Request;
 
-use crate::app::providers::interfaces::helpers::claims::Claims;
-use crate::app::providers::interfaces::helpers::config_getter::ConfigGetter;
+use crate::app::providers::config_getter::ConfigGetter;
+use crate::app::providers::services::claims::Claims;
 
 #[derive(Debug)]
 pub struct Token(pub String);

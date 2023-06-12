@@ -15,12 +15,8 @@ GET http://localhost:8011/health
 
 GET http://localhost:8012/health
 
-### slides - forms - externals
+### modules
 GET http://localhost:8021/health
-
-GET http://localhost:8022/health
-
-GET http://localhost:8023/health
 
 ### resources - papers
 GET http://localhost:8031/health

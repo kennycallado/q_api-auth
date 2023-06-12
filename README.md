@@ -1,5 +1,15 @@
 # q_api-base
 
+## Changelog
+
+### v0.1.5
+
+1. Estructura de directorios
+
+1. Renombrado módulo slides a module
+
+1. Urls terminan en barra
+
 ## Init a repo
 
 ### Extender plantilla

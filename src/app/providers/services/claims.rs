@@ -8,7 +8,7 @@ use crate::app::providers::constants::{
     ACCESS_TOKEN_EXPIRATION, REFRESH_TOKEN_EXPIRATION, ROBOT_TOKEN_EXPIRATION,
 };
 
-use crate::app::providers::interfaces::helpers::config_getter::ConfigGetter;
+use crate::app::providers::config_getter::ConfigGetter;
 
 #[derive(Debug)]
 pub enum ClaimsError {

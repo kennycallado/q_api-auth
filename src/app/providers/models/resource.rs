@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::app::providers::interfaces::question::PubQuestion;
-use crate::app::providers::interfaces::slide::PubSlide;
+use crate::app::providers::models::question::PubQuestion;
+use crate::app::providers::models::slide::PubSlide;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct PubResourceContent {
     pub slides: Option<Vec<PubSlide>>,
     pub form: Option<Vec<PubQuestion>>,
     pub external: Option<i32>,
 }
- 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct PubResource {
     pub id: i32,

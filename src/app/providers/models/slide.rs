@@ -2,9 +2,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::app::providers::interfaces::question::PubQuestion;
+use crate::app::providers::models::question::PubQuestion;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct PubSlide {
     pub id: i32,
@@ -14,7 +14,7 @@ pub struct PubSlide {
     pub question: Option<PubQuestion>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct PubNewSlide {
     pub slide_type: SlideType,
@@ -23,7 +23,7 @@ pub struct PubNewSlide {
     pub question: Option<PubQuestion>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SlideType {
     Content,
