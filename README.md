@@ -1,5 +1,7 @@
 # q_api-base
 
+WARNING: estoy borrando el fcm_token cuando logout pero puede que tenga más de un dispoistivo...
+
 ## Changelog
 
 ### v0.1.5

@@ -21,21 +21,21 @@ services:
       POSTGRES_PASSWORD: auth
     command: [ "docker-entrypoint.sh", "-c", "wal_level=logical", "-c", "max_connections=300" ]
 
-# # {{{ fcm
-#   fcm_api:
-#     image: kennycallado/q-api-fcm:latest
-#     ports:
-#       - "8005:8000"
-#     expose:
-#       - "8005:8000"
-#     environment:
-#       - ROCKET_ADDRESS="0.0.0.0"
-#       - ROCKET_PORT=8000
-#       - ROCKET_SECRET_KEY=""
-#       - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
-#     depends_on:
-#       - database
-# # }}}
+# {{{ fcm
+  fcm_api:
+    image: kennycallado/q-api-fcm:latest
+    ports:
+      - "8005:8000"
+    expose:
+      - "8005:8000"
+    environment:
+      - ROCKET_ADDRESS="0.0.0.0"
+      - ROCKET_PORT=8000
+      - ROCKET_SECRET_KEY=""
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+    depends_on:
+      - database
+# }}}
 
 # {{{ profiles - users - auth
   # {{{ profiles

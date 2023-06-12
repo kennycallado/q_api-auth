@@ -2,9 +2,9 @@ use rocket::State;
 use rocket::http::Status;
 use serde::{Serialize, Deserialize};
 
-use crate::app::providers::interfaces::helpers::claims::{Claims, UserInClaims};
-use crate::app::providers::interfaces::helpers::config_getter::ConfigGetter;
-use crate::app::providers::interfaces::helpers::fetch::Fetch;
+use crate::app::providers::config_getter::ConfigGetter;
+use crate::app::providers::services::claims::{Claims, UserInClaims};
+use crate::app::providers::services::fetch::Fetch;
 
 pub async fn fcm_token_delete(fetch: &State<Fetch>, user_id: i32) -> Result<(), Status> {
     #[derive(Serialize, Deserialize)]
@@ -19,8 +19,8 @@ pub async fn fcm_token_delete(fetch: &State<Fetch>, user_id: i32) -> Result<(), 
     };
 
     let fcm_api_url = ConfigGetter::get_entity_url("fcm")
-        .unwrap_or("http://localhost:8005/api/v1/fcm".to_string())
-        + "/token/"
+        .unwrap_or("http://localhost:8005/api/v1/fcm/".to_string())
+        + "token/"
         + user_id.to_string().as_str()
         + "/user";
 
@@ -50,8 +50,8 @@ pub async fn profile_request(fetch: &State<Fetch>, token: String) -> Result<i32,
     };
 
     let profile_api_url = ConfigGetter::get_entity_url("profile")
-        .unwrap_or("http://localhost:8001/api/v1/profile".to_string())
-        + "/token";
+        .unwrap_or("http://localhost:8001/api/v1/profile/".to_string())
+        + "token";
 
     let client = fetch.client.lock().await;
     let res = client
@@ -84,8 +84,7 @@ pub async fn user_request(fetch: &State<Fetch>, user_id: i32) -> Result<UserInCl
 
     // Prepare the url
     let user_url = ConfigGetter::get_entity_url("user")
-        .unwrap_or("http://localhost:8002/api/v1/user".to_string())
-        + "/"
+        .unwrap_or("http://localhost:8002/api/v1/user/".to_string())
         + user_id.to_string().as_str()
         + "/userinclaims";
 

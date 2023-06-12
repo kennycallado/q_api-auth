@@ -4,10 +4,10 @@ use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::app::providers::guards::claims::RefreshClaims;
-use crate::app::providers::interfaces::helpers::fetch::Fetch;
+use crate::app::providers::services::fetch::Fetch;
+use crate::app::providers::services::claims::UserInClaims;
 
 use crate::app::modules::auth::services::helpers;
-use crate::app::providers::interfaces::helpers::claims::UserInClaims;
 
 pub fn routes() -> Vec<rocket::Route> {
     routes![auth_bypass, auth, login_options, login, logout]
