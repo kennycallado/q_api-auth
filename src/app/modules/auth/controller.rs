@@ -10,7 +10,12 @@ use crate::app::providers::services::claims::UserInClaims;
 use crate::app::modules::auth::services::helpers;
 
 pub fn routes() -> Vec<rocket::Route> {
-    routes![auth_bypass, auth, login_options, login, logout]
+    routes![options_all, auth_bypass, auth, login, logout]
+}
+
+#[options("/<_..>")]
+pub async fn options_all() -> Status {
+    Status::Ok
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,12 +73,6 @@ pub async fn auth(fetch: &State<Fetch>, cookie: &CookieJar<'_>, claims: RefreshC
             return Err(e);
         }
     }
-}
-
-#[options("/login")]
-pub async fn login_options() -> Status {
-    println!("AUTH: login_options");
-    Status::Ok
 }
 
 #[post("/login", data = "<token>")]
