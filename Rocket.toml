@@ -10,22 +10,23 @@ origin_url = "http://localhost:8000"
 
 profile_url   = "http://localhost:8001/api/v1/profile/"
 user_url      = "http://localhost:8002/api/v1/user/"
-auth_url      = "http://localhost:8003/api/v1/auth/"
+auth_url      = "http://localhost:8003/auth/"
 
 fcm_url       = "http://localhost:8005/api/v1/fcm/"
 
 question_url  = "http://localhost:8011/api/v1/question/"
 answer_url    = "http://localhost:8012/api/v1/answer/"
 
-slides_url     = "http://localhost:8021/api/v1/slide/"
+slide_url     = "http://localhost:8021/api/v1/slide/"
 
 resource_url  = "http://localhost:8031/api/v1/resource/"
 paper_url     = "http://localhost:8032/api/v1/paper/"
 
 logic_url     = "http://localhost:8041/api/v1/logic/"
-checker_url   = "http://localhost:3000/"
+checker_url   = "http://localhost:3000/api/v1/checker/"
 
 project_url   = "http://localhost:8051/api/v1/project/"
+cron_url      = "http://localhost:8052/api/v1/cron/"
 
 [default.databases.questions]
 url = "postgres://auth:auth@localhost/auth"

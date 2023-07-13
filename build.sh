@@ -25,7 +25,14 @@ mkdir -p target
 chmod -R o+w target
 
 # Build the binary
-docker run --rm -it -v "$(pwd)":/home/rust/src nasqueron/rust-musl-builder cargo build --release
+# docker run --rm -it -v "$(pwd)":/home/rust/src nasqueron/rust-musl-builder cargo build --release
+docker run --rm -it \
+  -v /home/kenny/.cargo/git:/home/rust/.cargo/git \
+  -v /home/kenny/.cargo/registry:/home/rust/.cargo/registry \
+  -v "$(pwd)":/home/rust/src nasqueron/rust-musl-builder \
+  cargo build --release 
+#   # sudo chown -R rust:rust \
+#   # /home/rust/.cargo/git /home/rust/.cargo/registry /home/rust/src/target \
 
 for platform in ${platforms[@]}; do
   echo "Building docker image for: $platform."

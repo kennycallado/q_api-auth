@@ -28,6 +28,7 @@ pub struct ConfigGetter {
     pub checker_url: Option<String>,
     //
     pub project_url: Option<String>,
+    pub cron_url: Option<String>,
 }
 
 impl ConfigGetter {
@@ -53,6 +54,7 @@ impl ConfigGetter {
             "checker" => ConfigGetter::get_checker_url(),
             //
             "project" => ConfigGetter::get_project_url(),
+            "cron" => ConfigGetter::get_project_url(),
             _ => None,
         }
     }
@@ -169,5 +171,12 @@ impl ConfigGetter {
             .extract::<ConfigGetter>()
             .unwrap()
             .project_url
+    }
+
+    fn get_cron_url() -> Option<String> {
+        rocket::Config::figment()
+            .extract::<ConfigGetter>()
+            .unwrap()
+            .cron_url
     }
 }

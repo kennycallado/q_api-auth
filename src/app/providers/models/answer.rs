@@ -8,7 +8,7 @@ pub struct PubAnswer {
     pub answer: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct PubNewAnswer {
     pub question_id: i32,
