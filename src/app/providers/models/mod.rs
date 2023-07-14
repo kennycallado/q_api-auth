@@ -6,3 +6,4 @@ pub mod question;
 pub mod resource;
 pub mod record;
 pub mod slide;
+pub mod user;
