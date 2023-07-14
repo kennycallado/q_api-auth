@@ -76,19 +76,37 @@ pub async fn auth(fetch: &State<Fetch>, cookie: &CookieJar<'_>, claims: RefreshC
 }
 
 #[post("/login", data = "<token>")]
-pub async fn login(fetch: &State<Fetch>, cookie: &CookieJar<'_>, token: String) -> Result<Json<AuthUser>, Status> {
+pub async fn login(fetch: &State<Fetch>, cookie: &CookieJar<'_>, token: Json<String>) -> Result<Json<AuthUser>, Status> {
     // Request the user_id from the profile api
-    let response = helpers::profile_request(fetch, token).await;
-    if let Err(e) = response {
-        return Err(e);
-    }
-    let response = response.unwrap();
+    let token = token.into_inner();
 
-    let user_in_claims = helpers::user_request(fetch, response).await;
-    if let Err(_) = user_in_claims {
-        return Err(Status::InternalServerError);
+    let mut guest = false;
+    let project_id: i32;
+
+    if token.contains("guest") && token.contains(".") {
+        guest = true;
+        let parts = token.split(".").collect::<Vec<&str>>();
+        project_id = parts[1].parse::<i32>().unwrap();
+    } else {
+        project_id = 0;
     }
-    let user_in_claims = user_in_claims.unwrap();
+
+    let user_in_claims = if guest {
+        match helpers::create_guest(fetch, project_id).await {
+            Ok(user_in) => user_in,
+            _ => return Err(Status::InternalServerError)
+        }
+    } else {
+        let user_id = match helpers::profile_request(fetch, token).await {
+            Ok(id) => id,
+            _ => return Err(Status::Unauthorized)
+        };
+
+        match helpers::user_request(fetch, user_id).await {
+            Ok(user) => user,
+            _ => return Err(Status::InternalServerError)
+        }
+    };
 
     match helpers::token_generator(user_in_claims.clone()).await {
         Ok((refresh_token, access_token)) => {

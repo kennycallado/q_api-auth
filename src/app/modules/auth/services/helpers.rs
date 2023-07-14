@@ -3,8 +3,52 @@ use rocket::http::Status;
 use serde::{Serialize, Deserialize};
 
 use crate::app::providers::config_getter::ConfigGetter;
+use crate::app::providers::models::user::{PubNewUser, PubUserExpanded};
 use crate::app::providers::services::claims::{Claims, UserInClaims};
 use crate::app::providers::services::fetch::Fetch;
+
+pub async fn create_guest(fetch: &State<Fetch>, project_id: i32) -> Result<UserInClaims, Status> {
+    let robot_token = match Fetch::robot_token().await {
+        Ok(token) => token,
+        Err(_) => return Err(Status::InternalServerError),
+    };
+
+    let user_api_url = ConfigGetter::get_entity_url("user")
+        .unwrap_or("http://localhost:8002/api/v1/user/".to_string());
+
+    let new_user = PubNewUser {
+        depends_on: 1,
+        role_id: 4, // should be 6 to match guest
+        active: Some(true),
+        project_id,
+    };
+
+    let res;
+    {
+        let client = fetch.client.lock().await;
+        res = client
+            .post(&user_api_url)
+            .header("Accept", "application/json")
+            .header("Authorization", robot_token)
+            .header("Content-Type", "application/json")
+            .json(&new_user)
+            .send()
+            .await;
+    }
+
+    match res {
+        Ok(res) => {
+            if res.status() != 200 {
+                return Err(Status::from_code(res.status().as_u16()).unwrap());
+            }
+
+            let user_exp = res.json::<PubUserExpanded>().await.unwrap();
+            Ok(user_exp.into())
+        }
+        Err(_) => return Err(Status::InternalServerError),
+    }
+
+}
 
 pub async fn fcm_token_delete(fetch: &State<Fetch>, user_id: i32) -> Result<(), Status> {
     #[derive(Serialize, Deserialize)]
@@ -24,18 +68,21 @@ pub async fn fcm_token_delete(fetch: &State<Fetch>, user_id: i32) -> Result<(), 
         + user_id.to_string().as_str()
         + "/user";
 
-    let client = fetch.client.lock().await;
-    let res = client
-        .put(&fcm_api_url)
-        .header("Accept", "application/json")
-        .header("Authorization", robot_token)
-        .header("Content-Type", "application/json")
-        .json(&NewFcmToken {
-            user_id,
-            token: None,
-        })
-        .send()
-        .await;
+    let res;
+    {
+        let client = fetch.client.lock().await;
+        res = client
+            .put(&fcm_api_url)
+            .header("Accept", "application/json")
+            .header("Authorization", robot_token)
+            .header("Content-Type", "application/json")
+            .json(&NewFcmToken {
+                user_id,
+                token: None,
+            })
+            .send()
+            .await;
+    }
 
     match res {
         Ok(_) => Ok(()),
@@ -53,15 +100,18 @@ pub async fn profile_request(fetch: &State<Fetch>, token: String) -> Result<i32,
         .unwrap_or("http://localhost:8001/api/v1/profile/".to_string())
         + "token";
 
-    let client = fetch.client.lock().await;
-    let res = client
-        .post(&profile_api_url)
-        .header("Accept", "application/json")
-        .header("Authorization", robot_token)
-        .header("Content-Type", "application/json")
-        .json(&token)
-        .send()
-        .await;
+    let res;
+    {
+        let client = fetch.client.lock().await;
+        res = client
+            .post(&profile_api_url)
+            .header("Accept", "application/json")
+            .header("Authorization", robot_token)
+            .header("Content-Type", "application/json")
+            .json(&token)
+            .send()
+            .await;
+    }
 
     match res {
         Ok(res) => {
@@ -89,14 +139,17 @@ pub async fn user_request(fetch: &State<Fetch>, user_id: i32) -> Result<UserInCl
         + "/userinclaims";
 
     // Make the request
-    let client = fetch.client.lock().await;
-    let res = client
-        .get(&user_url)
-        .header("Accept", "application/json")
-        .header("Authorization", robot_token)
-        .header("Content-Type", "application/json")
-        .send()
-        .await;
+    let res;
+    {
+        let client = fetch.client.lock().await;
+        res = client
+            .get(&user_url)
+            .header("Accept", "application/json")
+            .header("Authorization", robot_token)
+            .header("Content-Type", "application/json")
+            .send()
+            .await;
+    }
 
     match res {
         Ok(res) => {

@@ -40,9 +40,13 @@ POST http://localhost:8000/auth/login
 Accept: application/json
 Content-Type: application/json
 
-{
   "admin"
-}
+
+POST http://localhost:8000/auth/login
+Accept: application/json
+Content-Type: application/json
+
+  "guest.1"
 
 GET http://localhost:8000/auth
 Accept: application/json
