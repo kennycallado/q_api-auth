@@ -127,7 +127,8 @@ pub async fn login(fetch: &State<Fetch>, cookie: &CookieJar<'_>, token: Json<Str
 
 #[get("/logout")]
 pub async fn logout(fetch: &State<Fetch>, cookie: &CookieJar<'_>, claims: RefreshClaims) -> Status {
-    if let Err(_) = helpers::fcm_token_delete(fetch, claims.0.user.id).await {
+    // if let Err(_) = helpers::fcm_token_delete(fetch, claims.0.user.id).await {
+    if let Err(_) = helpers::delete_token(fetch, claims.0.user.id).await {
         println!("AUTH: logout: fcm_token_delete failed");
     };
 
