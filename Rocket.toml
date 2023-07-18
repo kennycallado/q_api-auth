@@ -12,7 +12,7 @@ profile_url   = "http://localhost:8001/api/v1/profile/"
 user_url      = "http://localhost:8002/api/v1/user/"
 auth_url      = "http://localhost:8003/auth/"
 
-fcm_url       = "http://localhost:8005/api/v1/fcm/"
+message_url   = "http://localhost:8005/api/v1/messaging/"
 
 question_url  = "http://localhost:8011/api/v1/question/"
 answer_url    = "http://localhost:8012/api/v1/answer/"

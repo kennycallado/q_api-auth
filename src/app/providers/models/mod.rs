@@ -1,5 +1,5 @@
 pub mod answer;
-pub mod fcm;
+pub mod message;
 pub mod paper;
 pub mod project;
 pub mod question;

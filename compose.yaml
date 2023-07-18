@@ -21,9 +21,9 @@ services:
       POSTGRES_PASSWORD: auth
     command: [ "docker-entrypoint.sh", "-c", "wal_level=logical", "-c", "max_connections=300" ]
 
-# {{{ fcm
-  fcm_api:
-    image: kennycallado/q-api-fcm:latest
+# {{{ messages
+  messages_api:
+    image: kennycallado/q-api-messages:latest
     ports:
       - "8005:8000"
     expose:
@@ -37,7 +37,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -67,7 +67,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -96,7 +96,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -146,7 +146,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -175,7 +175,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -206,7 +206,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -237,7 +237,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -266,7 +266,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -310,7 +310,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -337,7 +337,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -370,7 +370,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
@@ -399,7 +399,7 @@ services:
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
       - ROCKET_AUTH_URL="http://auth_api:8000/"
-      - ROCKET_FCM_URL="http://fcm_api:8000/api/v1/fcm/"
+      - ROCKET_MESSAGE_URL="http://messages_api:8000/api/v1/messaging/"
       - ROCKET_QUESTION_URL="http://questions_api:8000/api/v1/question/"
       - ROCKET_ANSWER_URL="http://answers_api:8000/api/v1/answer/"
       - ROCKET_SLIDE_URL="http://slides_api:8000/api/v1/slide/"
