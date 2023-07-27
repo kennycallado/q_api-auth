@@ -78,12 +78,15 @@ pub async fn delete_token(fetch: &State<Fetch>, user_id: i32) -> Result<Status, 
     match res {
         Ok(res) => {
             if res.status() != 200 {
+                println!("Error: {}; trying to delete token from message", res.status().as_str());
                 return Err(Status::from_code(res.status().as_u16()).unwrap());
             }
 
             Ok(Status::Ok)
         }
-        Err(_) => return Err(Status::InternalServerError),
+        Err(e) => {
+            println!("Error: {};trying to delete token from message", e);
+            return Err(Status::InternalServerError)},
     }
 }
 
