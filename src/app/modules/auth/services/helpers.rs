@@ -3,6 +3,7 @@ use rocket::http::Status;
 use serde::{Serialize, Deserialize};
 
 use crate::app::providers::config_getter::ConfigGetter;
+use crate::app::providers::models::message::PubNewToken;
 use crate::app::providers::models::user::{PubNewUser, PubUserExpanded};
 use crate::app::providers::services::claims::{Claims, UserInClaims};
 use crate::app::providers::services::fetch::Fetch;
@@ -50,45 +51,84 @@ pub async fn create_guest(fetch: &State<Fetch>, project_id: i32) -> Result<UserI
 
 }
 
-pub async fn fcm_token_delete(fetch: &State<Fetch>, user_id: i32) -> Result<(), Status> {
-    #[derive(Serialize, Deserialize)]
-    struct NewFcmToken {
-        pub user_id: i32,
-        pub token: Option<String>,
-    }
-
+pub async fn delete_token(fetch: &State<Fetch>, user_id: i32) -> Result<Status, Status> {
     let robot_token = match Fetch::robot_token().await {
         Ok(token) => token,
         Err(_) => return Err(Status::InternalServerError),
     };
 
-    let fcm_api_url = ConfigGetter::get_entity_url("fcm")
-        .unwrap_or("http://localhost:8005/api/v1/fcm/".to_string())
-        + "token/"
-        + user_id.to_string().as_str()
-        + "/user";
+    let message_url = ConfigGetter::get_entity_url("message")
+        .unwrap_or("http://localhost:8005/api/v1/messaging/".to_string())
+        + "token/user/"
+        + user_id.to_string().as_str();
 
     let res;
     {
         let client = fetch.client.lock().await;
         res = client
-            .put(&fcm_api_url)
+            .put(message_url)
             .header("Accept", "application/json")
             .header("Authorization", robot_token)
             .header("Content-Type", "application/json")
-            .json(&NewFcmToken {
-                user_id,
-                token: None,
-            })
+            .json(& PubNewToken { user_id, fcm_token: None, web_token: None })
             .send()
             .await;
     }
 
     match res {
-        Ok(_) => Ok(()),
-        Err(_) => Err(Status::InternalServerError),
+        Ok(res) => {
+            if res.status() != 200 {
+                println!("Error: {}; trying to delete token from message", res.status().as_str());
+                return Err(Status::from_code(res.status().as_u16()).unwrap());
+            }
+
+            Ok(Status::Ok)
+        }
+        Err(e) => {
+            println!("Error: {};trying to delete token from message", e);
+            return Err(Status::InternalServerError)},
     }
 }
+
+// pub async fn fcm_token_delete(fetch: &State<Fetch>, user_id: i32) -> Result<(), Status> {
+//     #[derive(Serialize, Deserialize)]
+//     struct NewFcmToken {
+//         pub user_id: i32,
+//         pub token: Option<String>,
+//     }
+
+//     let robot_token = match Fetch::robot_token().await {
+//         Ok(token) => token,
+//         Err(_) => return Err(Status::InternalServerError),
+//     };
+
+//     let fcm_api_url = ConfigGetter::get_entity_url("fcm")
+//         .unwrap_or("http://localhost:8005/api/v1/fcm/".to_string())
+//         + "token/"
+//         + user_id.to_string().as_str()
+//         + "/user";
+
+//     let res;
+//     {
+//         let client = fetch.client.lock().await;
+//         res = client
+//             .put(&fcm_api_url)
+//             .header("Accept", "application/json")
+//             .header("Authorization", robot_token)
+//             .header("Content-Type", "application/json")
+//             .json(&NewFcmToken {
+//                 user_id,
+//                 token: None,
+//             })
+//             .send()
+//             .await;
+//     }
+
+//     match res {
+//         Ok(_) => Ok(()),
+//         Err(_) => Err(Status::InternalServerError),
+//     }
+// }
 
 pub async fn profile_request(fetch: &State<Fetch>, token: String) -> Result<i32, Status> {
     let robot_token = match Fetch::robot_token().await {
