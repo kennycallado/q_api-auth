@@ -7,7 +7,7 @@ edition = "2021"
 default = ["fetch"]
 full  =  ["db", "fetch", "cron", "push"]
 
-cron  = ["tokio-cron-scheduler", "reqwest"]
+cron  = ["tokio-cron-scheduler", "reqwest", "escalon"]
 db    = ["diesel", "diesel_migrations", "rocket_sync_db_pools"]
 fetch = ["reqwest"]
 push  = ["web-push-native", "base64ct", "hyper", "hyper-rustls"]
@@ -19,8 +19,9 @@ strip = true
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-diesel = { version = "2", features = ["postgres", "chrono", "serde_json"], optional = true  }
+diesel = { version = "2", features = ["postgres", "chrono", "serde_json", "uuid"], optional = true  }
 diesel_migrations = { version = "2", features = ["postgres"], optional = true }
+escalon = { version = "0.1.0", optional = true }
 jsonwebtoken = "8.2.0"
 reqwest = { version = "0.11", features = ["json"], optional = true }
 rocket = { version = "0.5.0-rc.3", features = ["json", "secrets", "uuid"] }
@@ -29,6 +30,7 @@ serde = { version = "1", features = ["derive"] }
 tokio-cron-scheduler = { version = "*", optional = true }
 
 openssl = "*" # musl
+time = "=0.3.22"
 
 web-push-native = { version = "0.2.0", optional = true}
 base64ct = { version = "1.6.0", optional = true }

@@ -15,8 +15,12 @@ pub struct Fetch {
 #[cfg(feature = "fetch")]
 impl Fetch {
     pub fn new() -> Self {
-        let client = Arc::new(Mutex::new(reqwest::Client::new()));
-        Fetch { client }
+        // let client = Arc::new(Mutex::new(reqwest::Client::new()));
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap() ;
+        Fetch { client: Arc::new(Mutex::new( client )) }
     }
 
     pub async fn robot_token() -> Result<String, jsonwebtoken::errors::Error> {
