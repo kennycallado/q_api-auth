@@ -135,8 +135,7 @@ impl Claims {
         self.iat = iat;
         self.exp = exp;
 
-        if let None = self.user.user_token {
-            // user_token is mandatory for refresh token
+        if self.user.user_token.is_none() {
             panic!("user_token is mandatory for refresh token");
         }
 

@@ -1,13 +1,13 @@
 [package]
 name = "q-api-auth"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 
 [features]
 default = ["fetch"]
 full  =  ["db", "fetch", "cron", "push"]
 
-cron  = ["tokio-cron-scheduler", "reqwest", "escalon"]
+cron  = ["tokio-cron-scheduler", "reqwest", "escalon-jobs", "db"]
 db    = ["diesel", "diesel_migrations", "rocket_sync_db_pools"]
 fetch = ["reqwest"]
 push  = ["web-push-native", "base64ct", "hyper", "hyper-rustls"]
@@ -19,9 +19,9 @@ strip = true
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-diesel = { version = "2", features = ["postgres", "chrono", "serde_json", "uuid"], optional = true  }
+diesel = { version = "2", features = ["postgres", "chrono", "serde_json", "uuid"], optional = true }
 diesel_migrations = { version = "2", features = ["postgres"], optional = true }
-escalon = { version = "0.1.0", optional = true }
+escalon-jobs = { version = "0.1.6", optional = true }
 jsonwebtoken = "8.2.0"
 reqwest = { version = "0.11", features = ["json"], optional = true }
 rocket = { version = "0.5.0-rc.3", features = ["json", "secrets", "uuid"] }

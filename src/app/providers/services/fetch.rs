@@ -1,11 +1,9 @@
 #[cfg(feature = "fetch")]
-use std::sync::Arc;
-
+use super::claims::{Claims, UserInClaims};
 #[cfg(feature = "fetch")]
 use rocket::tokio::sync::Mutex;
-
 #[cfg(feature = "fetch")]
-use super::claims::{Claims, UserInClaims};
+use std::sync::Arc;
 
 #[cfg(feature = "fetch")]
 pub struct Fetch {
@@ -19,8 +17,10 @@ impl Fetch {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .unwrap() ;
-        Fetch { client: Arc::new(Mutex::new( client )) }
+            .unwrap();
+        Fetch {
+            client: Arc::new(Mutex::new(client)),
+        }
     }
 
     pub async fn robot_token() -> Result<String, jsonwebtoken::errors::Error> {

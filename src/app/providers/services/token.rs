@@ -8,26 +8,17 @@ use crate::app::providers::services::claims::Claims;
 
 #[derive(Debug)]
 pub struct Token(pub String);
+
 impl Token {
     pub fn from_header(request: &Request<'_>) -> Option<Token> {
-        let token = request.headers().get_one("Authorization");
-
-        if token.is_none() {
-            return None;
-        }
-        let token = token.unwrap();
+        let token = request.headers().get_one("Authorization")?;
 
         let token = token.replace("Bearer ", "");
         Some(Token(token))
     }
 
     pub fn from_cookie(request: &Request<'_>) -> Option<Token> {
-        let token = request.cookies().get_private("refresh_token");
-
-        if token.is_none() {
-            return None;
-        }
-        let token = token.unwrap();
+        let token = request.cookies().get_private("refresh_token")?;
 
         request
             .cookies()

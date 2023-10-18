@@ -5,6 +5,8 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct ConfigGetter {
+    pub udp_port: Option<u16>,
+    //
     pub origin_url: Option<String>,
     pub secret_key: Option<String>,
     //
@@ -71,6 +73,17 @@ impl ConfigGetter {
             .extract::<ConfigGetter>()
             .unwrap()
             .secret_key
+    }
+
+    pub fn get_identity() -> String {
+        std::env::var("HOSTNAME").unwrap_or("server".to_string())
+    }
+
+    pub fn get_udp_port() -> Option<u16> {
+        rocket::Config::figment()
+            .extract::<ConfigGetter>()
+            .unwrap()
+            .udp_port
     }
 }
 

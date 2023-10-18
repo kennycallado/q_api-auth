@@ -4,7 +4,6 @@ use rocket::{http::Status, State};
 use serde::{Deserialize, Serialize};
 
 use crate::app::providers::config_getter::ConfigGetter;
-
 #[cfg(feature = "fetch")]
 use crate::app::providers::services::fetch::Fetch;
 
@@ -66,6 +65,5 @@ impl PubToken {
             }
             Err(_) => Err(Status::InternalServerError),
         }
-
     }
 }

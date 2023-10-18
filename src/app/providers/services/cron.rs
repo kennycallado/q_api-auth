@@ -1,372 +1,321 @@
-#![allow(unused)]
+use diesel::PgConnection;
+use escalon_jobs::manager::{ContextTrait, EscalonJobsManager, EscalonJobsManagerTrait};
+use escalon_jobs::{EscalonJob, EscalonJobStatus, EscalonJobTrait, NewEscalonJob};
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::{async_trait, Build, Rocket};
+use rocket_sync_db_pools::ConnectionPool;
+use std::net::IpAddr;
+use std::time::Duration;
 
-#[cfg(feature = "cron")]
-use std::sync::Arc;
-
-#[cfg(feature = "cron")]
-use chrono::{DateTime, NaiveDateTime, Utc};
-
-#[cfg(feature = "cron")]
-use rocket::serde::{ uuid::Uuid, Serialize };
-#[cfg(feature = "cron")]
-use rocket::tokio::sync::Mutex;
-
-#[cfg(feature = "cron")]
-use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
-
-#[cfg(all(feature = "db", feature = "cron"))]
-use diesel::{PgConnection, ConnectionError};
-#[cfg(all(feature = "db", feature = "cron"))]
-use diesel::prelude::*;
-#[cfg(feature = "cron")]
-use crate::database::schema::cronjobs;
-
-#[cfg(feature = "cron")]
-use crate::app::providers::models::cronjob::{PubCronJob, PubNewCronJob};
-
-#[cfg(all(feature = "db", feature = "cron"))]
+use crate::app::modules::cron::model::{CronJob, CronJobComplete, NewCronJob};
 use crate::app::providers::config_getter::ConfigGetter;
-#[cfg(all(feature = "db", feature = "cron"))]
-use crate::app::providers::models::cronjob::DbCron;
+use crate::database::connection::Db;
 
-#[cfg(feature = "cron")]
-use super::claims::{Claims, UserInClaims};
+pub type ContextDb = ConnectionPool<Db, PgConnection>;
 
-#[cfg(feature = "cron")]
 #[derive(Clone)]
-pub struct CronManager {
-    pub scheduler: Arc<Mutex<JobScheduler>>,
-    pub jobs: Arc<Mutex<Vec<PubCronJob>>>,
-    pub db_url: Option<String>,
+pub struct Context<T> {
+    pub db_pool: T,
+    pub fetch: reqwest::Client,
 }
 
-#[cfg(feature = "cron")]
+#[async_trait]
+impl ContextTrait<Context<ContextDb>> for Context<ContextDb> {
+    async fn update_job(&self, context: &Context<ContextDb>, job: EscalonJob) {
+        use diesel::prelude::*;
+
+        use crate::app::modules::escalon::model::{EJob, NewEJob};
+        use crate::database::schema::{cronjobs, escalonjobs};
+
+        let job: EJob = job.into();
+
+        context
+            .db_pool
+            .get()
+            .await
+            .unwrap()
+            .run(move |conn| {
+                diesel::update(escalonjobs::table)
+                    .filter(escalonjobs::id.eq(&job.id))
+                    .set(&job)
+                    .execute(conn)
+                    .unwrap();
+            })
+            .await;
+    }
+}
+
+pub struct CronManager(pub EscalonJobsManager<Context<ContextDb>>);
+
 impl CronManager {
-    pub async fn new(db_url: Option<String>) -> Self {
-        let scheduler = JobScheduler::new().await.unwrap();
-        let jobs = Arc::new(Mutex::new(Vec::new()));
-
-        scheduler.start().await.unwrap();
-
-        CronManager {
-            scheduler: Arc::new(Mutex::new(scheduler)),
-            jobs,
-            db_url,
-        }
-    }
-
-    #[cfg(feature = "db")]
-    async fn db_connection(&self) -> Result<PgConnection, ConnectionError> {
-        type Error = ConnectionError;
-
-        match self.db_url {
-            Some(ref url) => {
-                PgConnection::establish(url)
-            },
-            None => Err(ConnectionError::BadConnection("No database url".to_string())),
-        }
-    }
-
-    #[cfg(feature = "db")]
-    pub async fn init_from_db(&self) {
-        // create the connection
-        let mut db = match self.db_connection().await {
-            Ok(db) => DbCron(db),
-            Err(_) => {
-                println!("Error connecting to database");
-                return ;
-            },
+    pub async fn init(rocket: Rocket<Build>) -> Rocket<Build> {
+        let pool = match Db::pool(&rocket) {
+            Some(pool) => pool.clone(),
+            None => return rocket,
         };
 
-        // get all jobs from db
-        let jobs = cronjobs::table.load::<PubCronJob>(&mut db.0);
-        match jobs {
-            Ok(jobs) => {
-                for new_cronjob in jobs {
-                     
-                    if new_cronjob.status == "finished" { continue ; }
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap();
 
-                    match self.wrap_create_job(new_cronjob.id, &new_cronjob.into()).await {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("Error creating job: {}", e);
-                            return ;
-                        },
-                    }
-                }
-            },
-            Err(e) => {
-                println!("Error getting jobs from database: {}", e);
-                return ;
-            },
-        }
-    }
-
-    #[cfg(feature = "db")]
-    async fn wrap_create_job(&self, id: Uuid, new_cronjob: &PubNewCronJob) -> Result<Uuid, JobSchedulerError> {
-        match self.create_job(new_cronjob).await {
-            Ok(uuid) => {
-                // remove old job
-                self.remove_job(id).await.unwrap();
-
-                Ok(uuid)
-            },
-            Err(e) => {
-                println!("Error creating job: {}", e);
-                Err(e)
-            },
-        }
-    }
-
-    pub async fn create_job(&self, new_cronjob: &PubNewCronJob) -> Result<Uuid, JobSchedulerError> {
-        let service = ConfigGetter::get_entity_url(new_cronjob.service.as_str()).unwrap();
-        let route = new_cronjob.route.clone();
-        let manager = self.clone();
-
-        let job = Job::new_async(new_cronjob.schedule.as_str(), move |uuid, mut lock|  {
-            let url = format!("{}{}", service, route);
-            let manager = manager.clone();
-
-            Box::pin(async move {
-                let job = manager.get_job(uuid).await.unwrap();
-                let next_tick = lock.next_tick_for_job(uuid).await.unwrap().unwrap().naive_utc();
-                let until = job.until.clone();
-
-                manager.status_hanler(&mut lock, job, next_tick).await;
-
-                if let Some(until) = until {
-                    if until < next_tick {
-                        // change state to finished
-                        manager.update_status(uuid, "finished").await.unwrap();
-                        // lock.remove(&uuid).await.unwrap();
-
-                        return ;
-                    }
-                }
-
-                let robo_token = Claims::from(UserInClaims::default()).enconde_for_robot();
-                let res;
-                {
-                    let client = reqwest::Client::new();
-                    res = client
-                        .get(url)
-                        .bearer_auth(robo_token.unwrap())
-                        .header("Accept", "application/json")
-                        .send().await;
-                }
-
-                if let Err(e) = res {
-                    println!("Error: {};", e);
-
-                    // change the state to error
-                    manager.update_status(uuid, "error").await.unwrap();
-                    // lock.remove(&uuid).await.unwrap();
-               }
-            })
+        let manager = EscalonJobsManager::new(Context {
+            db_pool: pool,
+            fetch: client,
         });
 
-        match job {
-            Ok(job) => {
-                let id = job.guid();
+        let mut manager = manager
+            .set_id(ConfigGetter::get_identity())
+            .set_addr("0.0.0.0".parse::<IpAddr>().unwrap())
+            .set_port(ConfigGetter::get_udp_port().unwrap_or(65056))
+            .set_functions(Functions)
+            .build()
+            .await;
 
-                self.add_job(job, new_cronjob).await.unwrap();
+        manager.init().await;
 
-                Ok(id)
-            },
-            Err(e) => {
-                println!("Error: {};", e);
-                return Err(e);
-            },
-        }
+        let cron_manager = CronManager(manager);
+        cron_manager.take_jobs_on_init().await;
+
+        rocket.manage(cron_manager)
     }
 
-    pub async fn get_jobs(&self) -> Vec<PubCronJob> {
-        let jobs = self.jobs.lock().await;
-
-        jobs.clone()
+    pub fn inner(&self) -> &EscalonJobsManager<Context<ContextDb>> {
+        &self.0
     }
+}
 
-    pub async fn get_job(&self, id: Uuid) -> Option<PubCronJob> {
-        let jobs = self.jobs.lock().await;
+impl CronManager {
+    pub async fn take_jobs_on_init(&self) {
+        use diesel::prelude::*;
 
-        jobs.iter().find(|job| job.id == id).cloned()
-    }
+        use crate::app::modules::cron::model::{CronJob, NewCronJob};
+        use crate::app::modules::escalon::model::{EJob, NewEJob};
+        use crate::database::schema::{cronjobs, escalonjobs};
 
-    pub async fn add_job(&self, job: Job, cron_job: &PubNewCronJob) -> Result<(), JobSchedulerError> {
-        let scheduler = self.scheduler.lock().await;
-        let mut jobs = self.jobs.lock().await;
+        let jobs = self
+            .inner()
+            .context
+            .db_pool
+            .get()
+            .await
+            .unwrap()
+            .run(move |conn| {
+                let own_jobs: Vec<(i32, EJob)> = cronjobs::table
+                    .inner_join(escalonjobs::table)
+                    .filter(cronjobs::owner.eq(ConfigGetter::get_identity()))
+                    .filter(escalonjobs::status.ne("done"))
+                    .filter(escalonjobs::status.ne("failed"))
+                    .select((cronjobs::id, escalonjobs::all_columns))
+                    .load::<(i32, EJob)>(conn)
+                    .unwrap();
 
-        let uuid = scheduler.add(job).await?;
-        let now = DateTime::<Utc>::from(std::time::SystemTime::now());
+                let other_jobs: Vec<((i32, String), EJob)> = cronjobs::table
+                    .inner_join(escalonjobs::table)
+                    .filter(cronjobs::owner.ne(ConfigGetter::get_identity()))
+                    .select(((cronjobs::id, cronjobs::owner), escalonjobs::all_columns))
+                    .load::<((i32, String), EJob)>(conn)
+                    .unwrap();
 
-        let status;
-        match cron_job.since {
-            Some(since) => {
-                if now < since { status = "pending".to_owned(); }
-                else { status = "active".to_owned(); }
-            },
-            None => {
-                status = "active".to_owned();
-            }
-        }
+                (own_jobs, other_jobs)
+            })
+            .await;
 
-        let since: Option<NaiveDateTime> = match cron_job.since {
-            Some(mut since) => {
-                Some(since.with_timezone(&Utc).naive_utc())
-            },
-            None => None
-        };
+        // Agrego los jobs propios
+        for job in jobs.0 {
+            let old_uuid = job.1.id;
+            let new_ejob: NewEJob = job.1.into();
+            let escalon_job = self.inner().add_job(new_ejob).await;
+            let ejob: EJob = escalon_job.clone().into();
 
-        let until: Option<NaiveDateTime> = match cron_job.until {
-            Some(mut until) => {
-                Some(until.with_timezone(&Utc).naive_utc())
-            },
-            None => None
-        };
+            self.inner()
+                .context
+                .db_pool
+                .get()
+                .await
+                .unwrap()
+                .run(move |conn| {
+                    diesel::insert_into(escalonjobs::table)
+                        .values(ejob)
+                        .execute(conn)
+                        .unwrap();
 
-        let job = PubCronJob {
-            id: uuid,
-            schedule: cron_job.schedule.clone(),
-            service: cron_job.service.clone(),
-            status,
-            route: cron_job.route.clone(),
-            since,
-            until,
-        };
+                    diesel::update(cronjobs::table)
+                        .filter(cronjobs::id.eq(job.0))
+                        .set((
+                            cronjobs::owner.eq(ConfigGetter::get_identity()),
+                            cronjobs::job_id.eq(&escalon_job.job_id),
+                        ))
+                        .execute(conn)
+                        .unwrap();
 
-        #[cfg(feature = "db")]
-        {
-            let mut db = self.db_connection().await.unwrap();
-            diesel::insert_into(cronjobs::table)
-                .values(job.clone())
-                .execute(&mut db).expect("Error saving new cronjob");
-        }
-
-        jobs.push(job);
-
-        Ok(())
-    }
-
-    #[cfg(feature = "db")]
-    async fn remove_db(&self, id: Uuid) {
-        let mut db = self.db_connection().await.unwrap();
-
-        diesel::delete(cronjobs::table.find(id))
-            .execute(&mut db).expect("Error there is no cronjob with this id in db");
-    }
-
-
-    pub async fn remove_job(&self, id: Uuid) -> Result<(), JobSchedulerError> {
-        let scheduler = self.scheduler.lock().await;
-        let mut jobs = self.jobs.lock().await;
-
-        // let job = jobs.iter().find(|job| job.id == id).unwrap();
-        match jobs.iter().find(|job| job.id == id) {
-            Some(job) => {
-                scheduler.remove(&job.id).await?;
-
-                jobs.retain(|job| job.id != id);
-
-                #[cfg(feature = "db")]
-                self.remove_db(id).await;
-
-                Ok(())
-            },
-            None => {
-                // This means that the job is not in memory,
-                // so we need to remove from the database
-                #[cfg(feature = "db")]
-                self.remove_db(id).await;
-
-                return Ok(());
-            }
-        }
-    }
-
-    async fn update_db(&self, id: Uuid, new_cronjob: &PubNewCronJob) {
-        let mut db = self.db_connection().await.unwrap();
-
-        diesel::update(cronjobs::table.find(id))
-            .set(new_cronjob)
-            .execute(&mut db).expect("Error updating cronjob in db");
-    }
-
-    pub async fn update_status(&self, id: Uuid, status: &str) -> Result<(), JobSchedulerError> {
-        let mut jobs = self.jobs.lock().await;
-
-        let job = jobs.iter_mut().find(|job| job.id == id).unwrap();
-        job.status = status.to_owned();
-
-        #[cfg(feature = "db")]
-        {
-            let new_cronjob = job.clone().into();
-            self.update_db(id, &new_cronjob).await;
+                    diesel::delete(escalonjobs::table)
+                        .filter(escalonjobs::id.eq(old_uuid))
+                        .execute(conn)
+                        .unwrap();
+                })
+                .await;
         }
 
-        Ok(())
-    }
+        if !jobs.1.is_empty() {
+            let jobs = jobs.1.clone();
+            let manager = self.inner().clone();
 
-    pub async fn update_since(&self, id: Uuid, since: Option<NaiveDateTime>) -> Result<(), JobSchedulerError> {
-        let mut jobs = self.jobs.lock().await;
+            rocket::tokio::spawn(async move {
+                rocket::tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-        let job = jobs.iter_mut().find(|job| job.id == id).unwrap();
-        job.since = since;
+                for job in jobs {
+                    let clients = manager.clients.clone().unwrap();
 
-        #[cfg(feature = "db")]
-        {
-            let new_cronjob = job.clone().into();
-            self.update_db(id, &new_cronjob).await;
-        }
+                    if !clients.lock().unwrap().contains_key(&job.0 .1) {
+                        let old_uuid = job.1.id;
+                        let new_ejob: NewEJob = job.1.into();
+                        let escalon_job = manager.add_job(new_ejob).await;
+                        let ejob: EJob = escalon_job.clone().into();
 
-        Ok(())
-    }
+                        manager
+                            .context
+                            .db_pool
+                            .get()
+                            .await
+                            .unwrap()
+                            .run(move |conn| {
+                                diesel::insert_into(escalonjobs::table)
+                                    .values(ejob)
+                                    .execute(conn)
+                                    .unwrap();
 
+                                diesel::update(cronjobs::table)
+                                    .filter(cronjobs::id.eq(job.0 .0))
+                                    .set((
+                                        cronjobs::owner.eq(ConfigGetter::get_identity()),
+                                        cronjobs::job_id.eq(&escalon_job.job_id),
+                                    ))
+                                    .execute(conn)
+                                    .unwrap();
 
-    pub async fn update_until(&self, id: Uuid, until: Option<NaiveDateTime>) -> Result<(), JobSchedulerError> {
-        let mut jobs = self.jobs.lock().await;
-
-        let job = jobs.iter_mut().find(|job| job.id == id).unwrap();
-        job.until = until;
-
-        #[cfg(feature = "db")]
-        {
-            let new_cronjob = job.clone().into();
-            self.update_db(id, &new_cronjob).await;
-        }
-
-        Ok(())
-    }
-
-    pub async fn status_hanler(&self, mut lock: &mut JobScheduler, job: PubCronJob, next_tick: NaiveDateTime) {
-        match job.status.as_str() {
-            "finished" => {
-                println!("Job {} finished", job.id);
-                println!("Removing job from scheduler");
-
-                lock.remove(&job.id).await.unwrap();
-                return ;
-            },
-            "error" => {
-                println!("Job {} failed", job.id);
-                println!("Removing job from scheduler");
-
-                lock.remove(&job.id).await.unwrap();
-                return ;
-            },
-            "pending" => {
-                if let Some(since) = job.since {
-                    if since < next_tick {
-                        // change state to active
-                        &self.update_status(job.id, "active").await.unwrap();
-                    } else {
-                        return ;
+                                diesel::delete(escalonjobs::table)
+                                    .filter(escalonjobs::id.eq(old_uuid))
+                                    .execute(conn)
+                                    .unwrap();
+                            })
+                            .await;
                     }
-                } else {
-                    // change state to active
-                    &self.update_status(job.id, "active").await.unwrap();
                 }
-            },
-            _ => {}
+            });
         }
+    }
+}
+
+struct Functions;
+
+#[async_trait]
+impl EscalonJobsManagerTrait<Context<ContextDb>> for Functions {
+    async fn take_jobs(
+        &self,
+        manager: &EscalonJobsManager<Context<ContextDb>>,
+        from_client: String,
+        start_at: usize,
+        n_jobs: usize,
+    ) -> Result<Vec<String>, ()> {
+        use diesel::prelude::*;
+
+        use crate::app::modules::escalon::model::{EJob, NewEJob};
+        use crate::database::schema::{cronjobs, escalonjobs};
+
+        let jobs: Vec<(i32, EJob)> = manager
+            .context
+            .db_pool
+            .get()
+            .await
+            .unwrap()
+            .run(move |conn| {
+                cronjobs::table
+                    .filter(cronjobs::owner.eq(&from_client))
+                    .limit(n_jobs as i64)
+                    .offset(start_at as i64)
+                    .inner_join(escalonjobs::table)
+                    .select((cronjobs::id, escalonjobs::all_columns))
+                    .load::<(i32, EJob)>(conn)
+                    .unwrap()
+            })
+            .await;
+
+        let mut response = Vec::new();
+        for job in jobs {
+            let id = job.0;
+            let job = job.1;
+            let old_uuid = job.id;
+
+            let new_ejob: NewEJob = job.into();
+            let escalon_job = manager.add_job(new_ejob).await;
+            let ejob: EJob = escalon_job.clone().into();
+
+            manager
+                .context
+                .db_pool
+                .get()
+                .await
+                .unwrap()
+                .run(move |conn| {
+                    diesel::insert_into(escalonjobs::table)
+                        .values(ejob)
+                        .execute(conn)
+                        .unwrap();
+
+                    diesel::update(cronjobs::table)
+                        .filter(cronjobs::id.eq(id))
+                        .set((
+                            cronjobs::owner.eq(ConfigGetter::get_identity()),
+                            cronjobs::job_id.eq(&escalon_job.job_id),
+                        ))
+                        .execute(conn)
+                        .unwrap();
+                })
+                .await;
+
+            response.push(old_uuid.to_string());
+        }
+
+        Ok(response)
+    }
+
+    async fn drop_jobs(
+        &self,
+        manager: &EscalonJobsManager<Context<ContextDb>>,
+        jobs: Vec<String>,
+    ) -> Result<(), ()> {
+        use diesel::prelude::*;
+        use rocket::serde::uuid::Uuid;
+
+        use crate::database::schema::{cronjobs, escalonjobs};
+
+        // let mut affected_rows: usize = 0;
+        for ejob_id in jobs {
+            let ejob_id = Uuid::parse_str(ejob_id.as_str()).unwrap();
+
+            // let rows = manager
+            manager
+                .context
+                .db_pool
+                .get()
+                .await
+                .unwrap()
+                .run(move |conn| {
+                    diesel::delete(escalonjobs::table)
+                        .filter(escalonjobs::id.eq(&ejob_id))
+                        .execute(conn)
+                        .unwrap()
+                })
+                .await;
+
+            // affected_rows += rows;
+
+            if (manager.get_job(ejob_id).await).is_some() {
+                manager.remove_job(ejob_id).await;
+            }
+        }
+
+        Ok(())
     }
 }

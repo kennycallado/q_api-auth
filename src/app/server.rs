@@ -36,21 +36,8 @@ pub async fn rocket() -> _ {
 
     #[cfg(feature = "cron")]
     {
-
-        let mut db_url = None;
-        if cfg!(feature = "db") {
-            db_url = Some(rocket::Config::figment().extract_inner::<String>("databases.questions.url").unwrap());
-        }
-
-        rocket_build = rocket_build.manage(CronManager::new(db_url).await);
-
-        if cfg!(feature = "db") {
-            let cron_manager = rocket_build
-                .state::<CronManager>()
-                .expect("ERROR: rocket(); cron manager");
-
-            cron_manager.init_from_db().await;
-        }
+        rocket_build =
+            rocket_build.attach(AdHoc::on_ignite("Init CronManager", CronManager::init));
     }
 
     rocket_build

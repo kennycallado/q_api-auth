@@ -20,3 +20,11 @@ pub struct PubResource {
     pub description: String,
     pub content: Option<PubResourceContent>,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct PubNewResource {
+    pub resource_type: String,
+    pub title: String,
+    pub description: String,
+}

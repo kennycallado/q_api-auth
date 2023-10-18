@@ -19,7 +19,6 @@ pub struct PubUser {
     pub updated_at: NaiveDateTime,
 }
 
-
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct UserProject {
