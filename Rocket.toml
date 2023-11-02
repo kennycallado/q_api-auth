@@ -3,7 +3,6 @@
 
 [default]
 ident      = "questions_api-auth"
-ident      = "questions_api-base"
 port       = 8000
 udp_port   = 65056
 address    = "0.0.0.0"
