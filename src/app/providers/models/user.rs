@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -15,8 +15,8 @@ pub struct PubUser {
     pub depends_on: i32,
     pub role_id: i32,
     pub user_token: Option<String>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -26,7 +26,7 @@ pub struct UserProject {
     pub user_id: i32,
     pub project_id: i32,
     pub active: bool,
-    pub keys: Vec<Option<String>>,
+    pub keys: Option<Vec<String>>,
     pub record: Option<rocket::serde::json::Value>,
 }
 
@@ -38,8 +38,8 @@ pub struct PubUserExpanded {
     pub role: Role,
     pub user_token: Option<String>,
     pub project: UserProject,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

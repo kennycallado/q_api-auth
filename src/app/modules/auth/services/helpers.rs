@@ -43,7 +43,14 @@ pub async fn create_guest(fetch: &State<Fetch>, project_id: i32) -> Result<UserI
                 return Err(Status::from_code(res.status().as_u16()).unwrap());
             }
 
-            let user_exp = res.json::<PubUserExpanded>().await.unwrap();
+            let user_exp = match res.json::<PubUserExpanded>().await {
+                Ok(user_exp) => user_exp,
+                Err(e) => {
+                    println!("Error: {}; trying to get user_exp", e);
+                    return Err(Status::InternalServerError)
+                },
+            };
+
             Ok(user_exp.into())
         }
         Err(_) => return Err(Status::InternalServerError),
