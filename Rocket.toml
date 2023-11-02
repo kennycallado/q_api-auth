@@ -3,10 +3,12 @@
 
 [default]
 ident      = "questions_api-auth"
-# port       = 8000
+ident      = "questions_api-base"
+port       = 8000
+udp_port   = 65056
 address    = "0.0.0.0"
 origin_url = "http://localhost:8000,http://localhost:8080"
-# secret_key = ""
+secret_key = ""
 
 profile_url   = "http://localhost:8001/api/v1/profile/"
 user_url      = "http://localhost:8002/api/v1/user/"

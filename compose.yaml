@@ -10,11 +10,11 @@ version: "3.1"
 
 services:
   database:
-    image: postgres:13-alpine
+    image: postgres:14-alpine
     ports:
       - "5432:5432"
-    expose:
-      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_DB: auth
       POSTGRES_USER: auth
@@ -26,13 +26,12 @@ services:
     image: kennycallado/q-api-messages:latest
     ports:
       - "8005:8000"
-    expose:
-      - "8005:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/messages"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -56,13 +55,12 @@ services:
     image: kennycallado/q-api-profiles:latest
     ports:
       - "8001:8000"
-    expose:
-      - "8001:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/profiles"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -85,13 +83,12 @@ services:
     image: kennycallado/q-api-users:latest
     ports:
       - "8002:8000"
-    expose:
-      - "8002:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/users"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -135,13 +132,12 @@ services:
     image: kennycallado/q-api-questions:latest
     ports:
       - "8011:8000"
-    expose:
-      - "8011:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/questions"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -164,13 +160,12 @@ services:
     image: kennycallado/q-api-answers:latest
     ports:
       - "8012:8000"
-    expose:
-      - "8012:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/answers"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -195,13 +190,12 @@ services:
     image: kennycallado/q-api-slides:latest
     ports:
       - "8021:8000"
-    expose:
-      - "8021:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/slides"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -226,13 +220,12 @@ services:
     image: kennycallado/q-api-resources:latest
     ports:
       - "8031:8000"
-    expose:
-      - "8031:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/resources"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -255,13 +248,12 @@ services:
     image: kennycallado/q-api-papers:latest
     ports:
       - "8032:8000"
-    expose:
-      - "8032:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/papers"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -286,8 +278,7 @@ services:
     image: kennycallado/q-api-checker:latest
     ports:
       - "3000:3000"
-    expose:
-      - "3000:3000"
+    
     volumes:
       - scripts:/app/SCRIPTS
   # }}}
@@ -297,15 +288,14 @@ services:
     image: kennycallado/q-api-logics:latest
     ports:
       - "8041:8000"
-    expose:
-      - "8041:8000"
+    
     volumes:
       - scripts:/root/SCRIPTS
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      # - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/logics"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -332,7 +322,7 @@ services:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      # - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/logicscron"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -359,13 +349,12 @@ services:
     image: kennycallado/q-api-projects:latest
     ports:
       - "8051:8000"
-    expose:
-      - "8051:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/projects"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"
@@ -388,13 +377,12 @@ services:
     image: kennycallado/q-api-cron:latest
     ports:
       - "8052:8000"
-    expose:
-      - "8052:8000"
+    
     environment:
       - ROCKET_ADDRESS="0.0.0.0"
       - ROCKET_PORT=8000
       - ROCKET_SECRET_KEY=""
-      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/auth"}}
+      - ROCKET_DATABASES={questions={url="postgres://auth:auth@database/cron"}}
 
       - ROCKET_PROFILE_URL="http://profiles_api:8000/api/v1/profile/"
       - ROCKET_USER_URL="http://users_api:8000/api/v1/user/"

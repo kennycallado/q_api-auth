@@ -55,7 +55,7 @@ impl CronManager {
         };
 
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(10))
             .build()
             .unwrap();
 
@@ -121,7 +121,7 @@ impl CronManager {
             })
             .await;
 
-        // Agrego los jobs propios
+        // Own jobs
         for job in jobs.0 {
             let old_uuid = job.1.id;
             let new_ejob: NewEJob = job.1.into();
@@ -157,6 +157,7 @@ impl CronManager {
                 .await;
         }
 
+        // Other jobs
         if !jobs.1.is_empty() {
             let jobs = jobs.1.clone();
             let manager = self.inner().clone();
@@ -164,9 +165,26 @@ impl CronManager {
             rocket::tokio::spawn(async move {
                 rocket::tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
-                for job in jobs {
-                    let clients = manager.clients.clone().unwrap();
+                let clients = manager.clients.clone().unwrap();
+                let own_start_time = manager.start_time.clone().unwrap();
 
+                if clients
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .find(|client| {
+                        let client_time = client.1.start_time;
+                        match client_time.duration_since(own_start_time) {
+                            Ok(_) => true,
+                            Err(_) => false,
+                        }
+                    })
+                    .is_some()
+                {
+                    return;
+                }
+
+                for job in jobs {
                     if !clients.lock().unwrap().contains_key(&job.0 .1) {
                         let old_uuid = job.1.id;
                         let new_ejob: NewEJob = job.1.into();
@@ -202,6 +220,8 @@ impl CronManager {
                             .await;
                     }
                 }
+
+                return;
             });
         }
     }
