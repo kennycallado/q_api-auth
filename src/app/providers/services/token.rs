@@ -20,9 +20,7 @@ impl Token {
     pub fn from_cookie(request: &Request<'_>) -> Option<Token> {
         let token = request.cookies().get_private("refresh_token")?;
 
-        request
-            .cookies()
-            .remove_private(Cookie::named("refresh_token"));
+        request.cookies().remove_private(token.clone());
 
         let token = token.value().to_string();
         Some(Token(token))

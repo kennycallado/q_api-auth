@@ -31,7 +31,7 @@ pub async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {
 #[cfg(feature = "db_sqlx")]
 #[derive(Database)]
 #[database("questions")]
-pub struct Db(sqlx::PgPool);
+pub struct Db(pub sqlx::PgPool);
 
 #[cfg(feature = "db_sqlx")]
 pub async fn run_migrations(rocket: Rocket<Build>) -> Rocket<Build> {

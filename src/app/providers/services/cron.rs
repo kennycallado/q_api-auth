@@ -1,69 +1,56 @@
-use diesel::PgConnection;
+use rocket_db_pools::{sqlx, Database};
+
 use escalon_jobs::manager::{ContextTrait, EscalonJobsManager, EscalonJobsManagerTrait};
 use escalon_jobs::{EscalonJob, EscalonJobStatus, EscalonJobTrait, NewEscalonJob};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{async_trait, Build, Rocket};
-use rocket_sync_db_pools::ConnectionPool;
+use sqlx::types::Uuid;
+use std::borrow::BorrowMut;
 use std::net::IpAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::app::modules::cron::model::{CronJob, CronJobComplete, NewCronJob};
+use crate::app::modules::escalon::model::{EJob, NewEJob};
 use crate::app::providers::config_getter::ConfigGetter;
 use crate::database::connection::Db;
 
-pub type ContextDb = ConnectionPool<Db, PgConnection>;
-
 #[derive(Clone)]
-pub struct Context<T> {
-    pub db_pool: T,
+pub struct Context {
+    pub db: sqlx::PgPool,
     pub fetch: reqwest::Client,
 }
 
 #[async_trait]
-impl ContextTrait<Context<ContextDb>> for Context<ContextDb> {
-    async fn update_job(&self, context: &Context<ContextDb>, job: EscalonJob) {
-        use diesel::prelude::*;
-
-        use crate::app::modules::escalon::model::{EJob, NewEJob};
-        use crate::database::schema::{cronjobs, escalonjobs};
-
+impl ContextTrait<Context> for Context {
+    async fn update_job(&self, context: &Context, job: EscalonJob) {
         let job: EJob = job.into();
 
-        context
-            .db_pool
-            .get()
-            .await
-            .unwrap()
-            .run(move |conn| {
-                diesel::update(escalonjobs::table)
-                    .filter(escalonjobs::id.eq(&job.id))
-                    .set(&job)
-                    .execute(conn)
-                    .unwrap();
-            })
-            .await;
+        sqlx::query!(
+            r#"
+            UPDATE escalonjobs SET status = $1 WHERE id = $2
+            "#,
+            job.status,
+            job.id,
+        )
+        .execute(&context.db)
+        .await
+        .unwrap();
     }
 }
 
-pub struct CronManager(pub EscalonJobsManager<Context<ContextDb>>);
+pub struct CronManager(pub EscalonJobsManager<Context>);
 
 impl CronManager {
     pub async fn init(rocket: Rocket<Build>) -> Rocket<Build> {
-        let pool = match Db::pool(&rocket) {
-            Some(pool) => pool.clone(),
-            None => return rocket,
-        };
+        let db = Db::fetch(&rocket).unwrap().0.clone();
 
-        let client = reqwest::Client::builder()
+        let fetch = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
             .unwrap();
 
-        let manager = EscalonJobsManager::new(Context {
-            db_pool: pool,
-            fetch: client,
-        });
-
+        let manager = EscalonJobsManager::new(Context { db, fetch });
         let mut manager = manager
             .set_id(ConfigGetter::get_identity())
             .set_addr("0.0.0.0".parse::<IpAddr>().unwrap())
@@ -80,86 +67,118 @@ impl CronManager {
         rocket.manage(cron_manager)
     }
 
-    pub fn inner(&self) -> &EscalonJobsManager<Context<ContextDb>> {
+    pub fn inner(&self) -> &EscalonJobsManager<Context> {
         &self.0
     }
 }
 
 impl CronManager {
     pub async fn take_jobs_on_init(&self) {
-        use diesel::prelude::*;
+        let own_jobs = sqlx::query!(
+            r#"
+            SELECT cronjobs.id AS cron_id, escalonjobs.*
+            FROM cronjobs
+            INNER JOIN escalonjobs ON escalonjobs.id = cronjobs.job_id
+            WHERE cronjobs.owner = $1
+            AND escalonjobs.status != 'done'
+            AND escalonjobs.status != 'failed'
+            "#,
+            ConfigGetter::get_identity()
+        )
+        .fetch_all(&self.inner().context.db)
+        .await
+        .unwrap();
 
-        use crate::app::modules::cron::model::{CronJob, NewCronJob};
-        use crate::app::modules::escalon::model::{EJob, NewEJob};
-        use crate::database::schema::{cronjobs, escalonjobs};
-
-        let jobs = self
-            .inner()
-            .context
-            .db_pool
-            .get()
-            .await
-            .unwrap()
-            .run(move |conn| {
-                let own_jobs: Vec<(i32, EJob)> = cronjobs::table
-                    .inner_join(escalonjobs::table)
-                    .filter(cronjobs::owner.eq(ConfigGetter::get_identity()))
-                    .filter(escalonjobs::status.ne("done"))
-                    .filter(escalonjobs::status.ne("failed"))
-                    .select((cronjobs::id, escalonjobs::all_columns))
-                    .load::<(i32, EJob)>(conn)
-                    .unwrap();
-
-                let other_jobs: Vec<((i32, String), EJob)> = cronjobs::table
-                    .inner_join(escalonjobs::table)
-                    .filter(cronjobs::owner.ne(ConfigGetter::get_identity()))
-                    .select(((cronjobs::id, cronjobs::owner), escalonjobs::all_columns))
-                    .load::<((i32, String), EJob)>(conn)
-                    .unwrap();
-
-                (own_jobs, other_jobs)
+        let own_jobs: Vec<(i32, EJob)> = own_jobs
+            .into_iter()
+            .map(|job| {
+                let id = job.cron_id;
+                let job = EJob {
+                    id: job.id,
+                    status: job.status,
+                    schedule: job.schedule,
+                    since: job.since.map(|d| d.into()),
+                    until: job.until.map(|d| d.into()),
+                };
+                (id, job)
             })
-            .await;
+            .collect();
 
-        // Own jobs
-        for job in jobs.0 {
+        for job in own_jobs {
             let old_uuid = job.1.id;
             let new_ejob: NewEJob = job.1.into();
             let escalon_job = self.inner().add_job(new_ejob).await;
             let ejob: EJob = escalon_job.clone().into();
 
-            self.inner()
-                .context
-                .db_pool
-                .get()
-                .await
-                .unwrap()
-                .run(move |conn| {
-                    diesel::insert_into(escalonjobs::table)
-                        .values(ejob)
-                        .execute(conn)
-                        .unwrap();
+            sqlx::query!(
+                r#"
+                INSERT INTO escalonjobs VALUES ($1, $2, $3, $4, $5)
+                "#,
+                ejob.id,
+                ejob.status,
+                ejob.schedule,
+                ejob.since,
+                ejob.until,
+            )
+            .execute(&self.inner().context.db)
+            .await
+            .unwrap();
 
-                    diesel::update(cronjobs::table)
-                        .filter(cronjobs::id.eq(job.0))
-                        .set((
-                            cronjobs::owner.eq(ConfigGetter::get_identity()),
-                            cronjobs::job_id.eq(&escalon_job.job_id),
-                        ))
-                        .execute(conn)
-                        .unwrap();
+            sqlx::query!(
+                r#"
+                UPDATE cronjobs SET owner = $1, job_id = $2 WHERE id = $3
+                "#,
+                ConfigGetter::get_identity(),
+                escalon_job.job_id,
+                job.0,
+            )
+            .execute(&self.inner().context.db)
+            .await
+            .unwrap();
 
-                    diesel::delete(escalonjobs::table)
-                        .filter(escalonjobs::id.eq(old_uuid))
-                        .execute(conn)
-                        .unwrap();
-                })
-                .await;
+            sqlx::query!(
+                r#"
+                DELETE FROM escalonjobs WHERE id = $1
+                "#,
+                old_uuid,
+            )
+            .execute(&self.inner().context.db)
+            .await
+            .unwrap();
         }
 
-        // Other jobs
-        if !jobs.1.is_empty() {
-            let jobs = jobs.1.clone();
+        let other_jobs = sqlx::query!(
+            r#"
+            SELECT cronjobs.id AS cron_id, escalonjobs.*
+            FROM cronjobs
+            INNER JOIN escalonjobs ON escalonjobs.id = cronjobs.job_id
+            WHERE cronjobs.owner != $1
+            AND escalonjobs.status != 'done'
+            AND escalonjobs.status != 'failed'
+            "#,
+            ConfigGetter::get_identity()
+        )
+        .fetch_all(&self.inner().context.db)
+        .await
+        .unwrap();
+
+        let other_jobs: Vec<(i32, EJob)> = other_jobs
+            .into_iter()
+            .map(|job| {
+                let id = job.cron_id;
+                let job = EJob {
+                    id: job.id,
+                    status: job.status,
+                    schedule: job.schedule,
+                    since: job.since.map(|d| d.into()),
+                    until: job.until.map(|d| d.into()),
+                };
+                (id, job)
+            })
+            .collect();
+
+        if !other_jobs.is_empty() {
+            let jobs = other_jobs.clone();
             let manager = self.inner().clone();
 
             rocket::tokio::spawn(async move {
@@ -185,39 +204,47 @@ impl CronManager {
                 }
 
                 for job in jobs {
-                    if !clients.lock().unwrap().contains_key(&job.0 .1) {
+                    if !clients.lock().unwrap().contains_key(&job.1.id.to_string()) {
                         let old_uuid = job.1.id;
                         let new_ejob: NewEJob = job.1.into();
                         let escalon_job = manager.add_job(new_ejob).await;
                         let ejob: EJob = escalon_job.clone().into();
 
-                        manager
-                            .context
-                            .db_pool
-                            .get()
-                            .await
-                            .unwrap()
-                            .run(move |conn| {
-                                diesel::insert_into(escalonjobs::table)
-                                    .values(ejob)
-                                    .execute(conn)
-                                    .unwrap();
+                        sqlx::query!(
+                            r#"
+                            INSERT INTO escalonjobs VALUES ($1, $2, $3, $4, $5)
+                            "#,
+                            ejob.id,
+                            ejob.status,
+                            ejob.schedule,
+                            ejob.since,
+                            ejob.until,
+                        )
+                        .execute(&manager.context.db)
+                        .await
+                        .unwrap();
 
-                                diesel::update(cronjobs::table)
-                                    .filter(cronjobs::id.eq(job.0 .0))
-                                    .set((
-                                        cronjobs::owner.eq(ConfigGetter::get_identity()),
-                                        cronjobs::job_id.eq(&escalon_job.job_id),
-                                    ))
-                                    .execute(conn)
-                                    .unwrap();
+                        sqlx::query!(
+                            r#"
+                            UPDATE cronjobs SET owner = $1, job_id = $2 WHERE id = $3
+                            "#,
+                            ConfigGetter::get_identity(),
+                            escalon_job.job_id,
+                            job.0,
+                        )
+                        .execute(&manager.context.db)
+                        .await
+                        .unwrap();
 
-                                diesel::delete(escalonjobs::table)
-                                    .filter(escalonjobs::id.eq(old_uuid))
-                                    .execute(conn)
-                                    .unwrap();
-                            })
-                            .await;
+                        sqlx::query!(
+                            r#"
+                            DELETE FROM escalonjobs WHERE id = $1
+                            "#,
+                            old_uuid,
+                        )
+                        .execute(&manager.context.db)
+                        .await
+                        .unwrap();
                     }
                 }
 
@@ -230,36 +257,45 @@ impl CronManager {
 struct Functions;
 
 #[async_trait]
-impl EscalonJobsManagerTrait<Context<ContextDb>> for Functions {
+impl EscalonJobsManagerTrait<Context> for Functions {
     async fn take_jobs(
         &self,
-        manager: &EscalonJobsManager<Context<ContextDb>>,
+        manager: &EscalonJobsManager<Context>,
         from_client: String,
         start_at: usize,
         n_jobs: usize,
     ) -> Result<Vec<String>, ()> {
-        use diesel::prelude::*;
+        let jobs = sqlx::query!(
+            r#"
+            SELECT cronjobs.id AS cron_id, escalonjobs.*
+            FROM cronjobs
+            INNER JOIN escalonjobs ON escalonjobs.id = cronjobs.job_id
+            WHERE cronjobs.owner = $1
+            LIMIT $2
+            OFFSET $3
+            "#,
+            from_client,
+            n_jobs as i64,
+            start_at as i64,
+        )
+        .fetch_all(&manager.context.db)
+        .await
+        .unwrap();
 
-        use crate::app::modules::escalon::model::{EJob, NewEJob};
-        use crate::database::schema::{cronjobs, escalonjobs};
-
-        let jobs: Vec<(i32, EJob)> = manager
-            .context
-            .db_pool
-            .get()
-            .await
-            .unwrap()
-            .run(move |conn| {
-                cronjobs::table
-                    .filter(cronjobs::owner.eq(&from_client))
-                    .limit(n_jobs as i64)
-                    .offset(start_at as i64)
-                    .inner_join(escalonjobs::table)
-                    .select((cronjobs::id, escalonjobs::all_columns))
-                    .load::<(i32, EJob)>(conn)
-                    .unwrap()
+        let jobs: Vec<(i32, EJob)> = jobs
+            .into_iter()
+            .map(|job| {
+                let id = job.cron_id;
+                let job = EJob {
+                    id: job.id,
+                    status: job.status,
+                    schedule: job.schedule,
+                    since: job.since.map(|d| d.into()),
+                    until: job.until.map(|d| d.into()),
+                };
+                (id, job)
             })
-            .await;
+            .collect();
 
         let mut response = Vec::new();
         for job in jobs {
@@ -271,28 +307,31 @@ impl EscalonJobsManagerTrait<Context<ContextDb>> for Functions {
             let escalon_job = manager.add_job(new_ejob).await;
             let ejob: EJob = escalon_job.clone().into();
 
-            manager
-                .context
-                .db_pool
-                .get()
-                .await
-                .unwrap()
-                .run(move |conn| {
-                    diesel::insert_into(escalonjobs::table)
-                        .values(ejob)
-                        .execute(conn)
-                        .unwrap();
+            sqlx::query!(
+                r#"
+                INSERT INTO escalonjobs VALUES ($1, $2, $3, $4, $5)
+                "#,
+                ejob.id,
+                ejob.status,
+                ejob.schedule,
+                ejob.since,
+                ejob.until,
+            )
+            .execute(&manager.context.db)
+            .await
+            .unwrap();
 
-                    diesel::update(cronjobs::table)
-                        .filter(cronjobs::id.eq(id))
-                        .set((
-                            cronjobs::owner.eq(ConfigGetter::get_identity()),
-                            cronjobs::job_id.eq(&escalon_job.job_id),
-                        ))
-                        .execute(conn)
-                        .unwrap();
-                })
-                .await;
+            sqlx::query!(
+                r#"
+                UPDATE cronjobs SET owner = $1, job_id = $2 WHERE id = $3
+                "#,
+                ConfigGetter::get_identity(),
+                escalon_job.job_id,
+                id,
+            )
+            .execute(&manager.context.db)
+            .await
+            .unwrap();
 
             response.push(old_uuid.to_string());
         }
@@ -302,34 +341,25 @@ impl EscalonJobsManagerTrait<Context<ContextDb>> for Functions {
 
     async fn drop_jobs(
         &self,
-        manager: &EscalonJobsManager<Context<ContextDb>>,
+        manager: &EscalonJobsManager<Context>,
         jobs: Vec<String>,
     ) -> Result<(), ()> {
-        use diesel::prelude::*;
-        use rocket::serde::uuid::Uuid;
+        let mut _affected_rows: usize = 0;
 
-        use crate::database::schema::{cronjobs, escalonjobs};
-
-        // let mut affected_rows: usize = 0;
         for ejob_id in jobs {
             let ejob_id = Uuid::parse_str(ejob_id.as_str()).unwrap();
 
-            // let rows = manager
-            manager
-                .context
-                .db_pool
-                .get()
-                .await
-                .unwrap()
-                .run(move |conn| {
-                    diesel::delete(escalonjobs::table)
-                        .filter(escalonjobs::id.eq(&ejob_id))
-                        .execute(conn)
-                        .unwrap()
-                })
-                .await;
+            let rows = sqlx::query!(
+                r#"
+                DELETE FROM escalonjobs WHERE id = $1
+                "#,
+                ejob_id,
+            )
+            .execute(&manager.context.db)
+            .await
+            .unwrap();
 
-            // affected_rows += rows;
+            _affected_rows += rows.rows_affected() as usize;
 
             if (manager.get_job(ejob_id).await).is_some() {
                 manager.remove_job(ejob_id).await;
